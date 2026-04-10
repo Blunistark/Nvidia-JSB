@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "warp_jsb"
+version = "0.1.0"
+description = "High-fidelity GPU-accelerated aerospace physics engine powered by NVIDIA Warp."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "warp-lang",
+    "numpy",
+]
+
+[tool.setuptools.package-data]
+warp_jsb = ["assets/**/*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["warp_jsb*"]
+
+[project.scripts]
+pioneer-sim = "warp_jsb.launcher:main"

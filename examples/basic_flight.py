@@ -17,20 +17,15 @@ def apply_actions_kernel(
     controls: wp.array(dtype=ControlState)
 ):
     tid = wp.tid()
-    
-    # Map normalized actions [-1, 1] to ControlState
     ctrl = ControlState()
     ctrl.aileron  = actions[tid, 0]
     ctrl.elevator = actions[tid, 1]
     ctrl.rudder   = actions[tid, 2]
     ctrl.throttle = (actions[tid, 3] + 1.0) * 0.5
-    
-    # Default engine configs
     ctrl.mixture = 1.0
     ctrl.flaps   = 0.0
     ctrl.brake   = 0.0
     ctrl.steer   = 0.0
-    
     controls[tid] = ctrl
 
 def load_aero_handles(data_dir, device):
@@ -50,7 +45,7 @@ def load_aero_handles(data_dir, device):
         setattr(handles, f"{attr_prefix}{t}_meta", wp.from_numpy(meta, dtype=wp.float32, device=device))
     return handles
 
-def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
+def run_simulation(num_aircraft=10000, num_steps=100, dt=0.01):
     device = "cuda" if wp.is_cuda_available() else "cpu"
     data_dir = 'd:\\Nvidia-JSB\\data\\c172p'
     
@@ -69,6 +64,8 @@ def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
         s.mass = 1880.0 / 2.20462
         s.fuel_mass = 100.0
         s.rpm = 2400.0
+        # Spread out aircraft to see distinct trajectories
+        s.pos = wp.vec3(0.0, float(tid) * 20.0, 0.0) 
         states[tid] = s
     wp.launch(init_states_kernel, dim=num_aircraft, inputs=[states], device=device)
     
@@ -91,19 +88,19 @@ def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
     ]
     contacts = wp.array(h_contacts, dtype=ContactPoint, device=device)
     
-    # 4. Environment & Parameters
+    # 4. Parameters
     S, b, c = 16.16, 10.91, 1.49 
     rho = 1.225
     p_amb = 2116.22 
     r_aero = wp.vec3(0.0, 0.0, 0.0)
     r_prop = wp.vec3(-2.0, 0.0, 0.0)
     
-    # 5. Experience Harvesting (10-Step Time Series)
+    # 5. Experience Harvesting (14-D Spatial Edition)
     window_size = 10
-    print(f"\nInitializing {window_size}-step Time-Series Harvester for {num_aircraft} agents (Agent-First)...")
-    harvester = ExperienceHarvester(num_aircraft, window_size=window_size, obs_dim=11, act_dim=4, device=device)
+    print(f"\nInitializing 14-D Spatial Harvester for {num_aircraft} agents...")
+    harvester = ExperienceHarvester(num_aircraft, window_size=window_size, obs_dim=14, act_dim=4, device=device)
     
-    print(f"Starting FULL SYSTEM SIMULATION...")
+    print(f"Starting Spatial Trajectory Capture...")
     
     start = time.time()
     for i in range(num_steps):
@@ -120,33 +117,15 @@ def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
             device=device
         )
         
-        # Harvest (Snapshot into circular buffer)
+        # Harvest (14-D Spatial)
         harvester.record(states, controls)
         
     wp.synchronize()
     end = time.time()
     
-    # 6. Verification
-    s_final = states.numpy()[0]
-    print(f"\nFinal State Telemetry (Aircraft 0):")
-    print(f" - Altitude: {s_final['alt_ft']:.2f} ft")
-    print(f" - Airspeed: {s_final['v_kts']:.2f} kts")
-    print(f" - Attitude Rad: {s_final['euler_rad']}")
-    
-    logger = FleetLogger(num_aircraft, device)
-    stats = logger.compute(states)
-    print(f"\n========================================")
-    print(f" FLEET MISSION REPORT ({num_aircraft} Aircraft)")
-    print(f"========================================")
-    print(f" Altitude Mean: {stats['mean_alt_ft']:.2f} ft")
-    print(f" Airspeed Max: {stats['max_v_kts']:.2f} kts")
-    print(f"========================================\n")
-    
-    # 7. Dataset Export
-    harvester.save_to_disk("pioneer_sequence_data")
-    
-    print(f"RK4 Model Sim took {end-start:.4f} seconds.")
-    print(f"Throughput: {num_aircraft * num_steps / (end-start):.0f} aircraft-steps/sec")
+    # 8. Dataset Export
+    harvester.save_to_disk("pioneer_spatial_data")
+    print(f"Spatial Capture complete in {end-start:.4f} seconds.")
 
 if __name__ == "__main__":
     run_simulation()

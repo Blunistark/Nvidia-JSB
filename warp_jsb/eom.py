@@ -35,6 +35,10 @@ class AircraftState:
     alt_ft: wp.float32
     v_kts: wp.float32
     euler_rad: wp.vec3 # [roll, pitch, yaw]
+    
+    # Forensic Telemetry for DRL Parity
+    accel_body: wp.vec3 # (u_dot, v_dot, w_dot) in fps^2
+    vel_ned: wp.vec3    # (v_north, v_east, v_down) in fps
 
 @wp.struct
 class StateDeriv:
@@ -46,15 +50,28 @@ class StateDeriv:
     d_rpm: wp.float32
 
 @wp.func
+def quat_rotate_vector(q: wp.quat, v: wp.vec3):
+    # Standard quat-vector rotation: v' = q * v * q_inv
+    qv = wp.vec3(q[0], q[1], q[2])
+    qw = q[3]
+    t = wp.cross(qv, v) * 2.0
+    return v + t * qw + wp.cross(qv, t)
+
+@wp.func
 def compute_aero_angles(vel_body: wp.vec3):
     u = vel_body[0]
     v = vel_body[1]
     w = vel_body[2]
     v_mag = wp.length(vel_body)
-    if v_mag < 0.1:
-        return 0.0, 0.0, 0.0
-    alpha = wp.atan2(w, u)
-    beta = wp.asin(wp.clamp(v / v_mag, -1.0, 1.0))
+    
+    alpha = 0.0
+    if u > 0.001 or u < -0.001:
+        alpha = wp.atan2(w, u)
+    
+    beta = 0.0
+    if v_mag > 0.001:
+        beta = wp.asin(v / v_mag)
+        
     return alpha, beta, v_mag
 
 @wp.func
@@ -69,78 +86,72 @@ def compute_full_dynamics_derivative(
     r_aero: wp.vec3,
     r_prop: wp.vec3
 ) -> StateDeriv:
-    elevator_rad, aileron_rad, rudder_rad, flaps_norm = compute_fcs_components(
-        ctrl.elevator, 0.0, ctrl.aileron, 0.0, ctrl.rudder, 0.0, ctrl.flaps, 0.01
-    )
-    v_ned = wp.quat_rotate(s.quat, s.vel_body)
-    dq_dt = 0.5 * wp.mul(s.quat, wp.quat(s.omega_body[0], s.omega_body[1], s.omega_body[2], 0.0))
-    v_fps = wp.length(s.vel_body) * 3.28084
-    rho_slugs = rho * 0.00194032
-    
-    thrust_lbs, torque_prop, v_i_fps = compute_prop_forces_and_induced(
-        v_fps, rho_slugs, s.rpm, 6.25, handles
-    )
-    hp_engine, torque_engine = update_piston_engine(
-        ctrl.throttle, ctrl.mixture, rho_slugs, s.rpm, p_amb
-    )
-    
-    v_slip_fps = v_fps + v_i_fps * 2.0
-    qbar_psf = 0.5 * rho_slugs * (v_fps * v_fps)
-    qbar_induced_psf = 0.5 * rho_slugs * (v_slip_fps * v_slip_fps)
-    
+    # 1. Kinematics
+    v_ned = quat_rotate_vector(s.quat, s.vel_body)
+    omega_quad = wp.quat(s.omega_body[0], s.omega_body[1], s.omega_body[2], 0.0)
+    dq_dt = s.quat * omega_quad * 0.5
+
+    # 2. Aero Angles & Rates
     alpha, beta, v_mag = compute_aero_angles(s.vel_body)
-    inv_v = 1.0 / wp.max(v_mag, 0.1)
-    bi2vel = b * 0.5 * inv_v
-    ci2vel = c * 0.5 * inv_v
-    h_mac = wp.max(0.0, -s.pos[2]) / c
+    q_bar = 0.5 * rho * v_mag * v_mag
+    v_mag_fps = v_mag * 3.28084
     
-    # Pass BOTH qbar and qbar_induced to evaluate_aero_model
-    D_lbs, Y_lbs, L_lbs, l_ftlbs, m_ftlbs, n_ftlbs = evaluate_aero_model(
-        alpha, beta, qbar_psf, qbar_induced_psf, s.omega_body[0], s.omega_body[1], s.omega_body[2],
-        bi2vel, ci2vel, h_mac, s.stall_hyst, elevator_rad, aileron_rad, rudder_rad, flaps_norm, handles
+    bi2vel = 0.0
+    ci2vel = 0.0
+    if v_mag_fps > 0.1:
+        bi2vel = b / (2.0 * v_mag_fps)
+        ci2vel = c / (2.0 * v_mag_fps)
+
+    # 3. Aero Model (15-parameter synchronization)
+    drag, side, lift, roll, pitch, yaw = evaluate_aero_model(
+        alpha, beta, q_bar, q_bar, 
+        s.omega_body[0], s.omega_body[1], s.omega_body[2],
+        bi2vel, ci2vel, c, s.stall_hyst,
+        ctrl.elevator, ctrl.aileron, ctrl.rudder, ctrl.flaps,
+        handles
+    )
+    f_aero = wp.vec3(-drag, side, -lift)
+    m_aero = wp.vec3(roll, pitch, yaw)
+
+    # 4. Propulsion (Dual Phase Engine -> Prop)
+    p_amb_inhg = p_amb * 0.014139 # Psf to inHg
+    hp_engine, torque_engine = update_piston_engine(
+        ctrl.throttle, ctrl.mixture, rho, s.rpm, p_amb_inhg
     )
     
-    # Propeller Asymmetry Physics
-    # 1. P-Factor (Cross-wind on disk due to AoA)
-    p_factor_const = 12.5 
-    n_pfactor_ftlbs = thrust_lbs * p_factor_const * wp.sin(alpha)
+    diameter_ft = 6.33
+    thrust, torque_prop, v_i = compute_prop_forces_and_induced(
+        v_mag_fps, rho, s.rpm, diameter_ft, handles
+    )
     
-    # 2. Spiral Slipstream (Blast hitting vertical tail)
-    n_slip_ftlbs = qbar_induced_psf * S * b * (-0.004) # Calibrated bias
-    
-    f_aero_b = wp.vec3((L_lbs * wp.sin(alpha) - D_lbs * wp.cos(alpha)) * 4.44822, Y_lbs * 4.44822, (-L_lbs * wp.cos(alpha) - D_lbs * wp.sin(alpha)) * 4.44822)
-    t_aero_pure_b = wp.vec3(l_ftlbs * 1.35582, m_ftlbs * 1.35582, (n_ftlbs + n_pfactor_ftlbs + n_slip_ftlbs) * 1.35582)
-    t_aero_arm_b = wp.cross(r_aero, f_aero_b)
-    
-    f_prop_b = wp.vec3(thrust_lbs * 4.44822, 0.0, 0.0)
-    t_prop_arm_b = wp.cross(r_prop, f_prop_b)
-    t_prop_react_b = wp.vec3(-torque_prop * 1.35582, 0.0, 0.0)
-    
-    f_ground_b = wp.vec3(0.0, 0.0, 0.0)
-    t_ground_b = wp.vec3(0.0, 0.0, 0.0)
+    f_prop = wp.vec3(thrust, 0.0, 0.0)
+    m_prop = wp.vec3(-torque_prop, 0.0, 0.0)
+
+    # 5. External - Ground Reactions
+    f_ext = wp.vec3(0.0, 0.0, 0.0)
+    m_ext = wp.vec3(0.0, 0.0, 0.0)
     for i in range(len(contacts)):
-        f_c, t_c = compute_single_contact_force(contacts[i], s.pos, s.quat, s.vel_body, s.omega_body, ctrl.brake, ctrl.steer)
-        f_ground_b += f_c
-        t_ground_b += t_c
-        
-    total_f_b = f_aero_b + f_prop_b + f_ground_b
-    g_m_s2 = 9.80665
-    gravity_ned = wp.vec3(0.0, 0.0, g_m_s2)
-    gravity_body = wp.quat_rotate(wp.quat_inverse(s.quat), gravity_ned)
+        f, m = compute_single_contact_force(
+            contacts[i], s.pos, s.quat, s.vel_body, s.omega_body, ctrl.brake, ctrl.steer
+        )
+        f_ext = f_ext + f
+        m_ext = m_ext + m
     
-    d_vel = (total_f_b / s.mass) + gravity_body - wp.cross(s.omega_body, s.vel_body)
-    
-    total_t_b = t_aero_pure_b + t_aero_arm_b + t_prop_arm_b + t_prop_react_b + t_ground_b
-    i_omega = s.inertia * s.omega_body
-    d_omega = s.inertia_inv * (total_t_b - wp.cross(s.omega_body, i_omega))
+    # 6. Gravity (Body Frame)
+    g_ned = wp.vec3(0.0, 0.0, 9.80665)
+    g_body = quat_rotate_vector(wp.quat_inverse(s.quat), g_ned)
+
+    # 7. EOM
+    d_vel = (f_aero + f_prop + f_ext) / s.mass - wp.cross(s.omega_body, s.vel_body) + g_body
+    d_omega = s.inertia_inv * (m_aero + m_prop + m_ext - wp.cross(s.omega_body, s.inertia * s.omega_body))
+
     deriv = StateDeriv()
     deriv.d_pos = v_ned
     deriv.d_quat = dq_dt
     deriv.d_vel = d_vel
     deriv.d_omega = d_omega
-    deriv.d_fuel = 0.0
-    
-    deriv.d_rpm = (torque_engine - torque_prop) / 1.67 * (60.0 / (2.0 * 3.14159)) 
+    deriv.d_fuel = 0.0 
+    deriv.d_rpm = (torque_engine - torque_prop) / 0.167 * (60.0 / (2.0 * 3.14159)) 
     
     return deriv
 
@@ -161,10 +172,9 @@ def integrate_full_state_rk4_kernel(
     s = states[tid]
     ctrl = controls[tid]
     
-    # 1. k1
+    # RK4 Stages
     k1 = compute_full_dynamics_derivative(s, ctrl, handles, S, b, c, rho, contacts, p_amb, r_aero, r_prop)
     
-    # 2. k2
     s2 = s
     s2.pos = s.pos + k1.d_pos * (dt * 0.5)
     s2.quat = wp.normalize(s.quat + k1.d_quat * (dt * 0.5))
@@ -172,7 +182,6 @@ def integrate_full_state_rk4_kernel(
     s2.omega_body = s.omega_body + k1.d_omega * (dt * 0.5)
     k2 = compute_full_dynamics_derivative(s2, ctrl, handles, S, b, c, rho, contacts, p_amb, r_aero, r_prop)
     
-    # 3. k3
     s3 = s
     s3.pos = s.pos + k2.d_pos * (dt * 0.5)
     s3.quat = wp.normalize(s.quat + k2.d_quat * (dt * 0.5))
@@ -180,7 +189,6 @@ def integrate_full_state_rk4_kernel(
     s3.omega_body = s.omega_body + k2.d_omega * (dt * 0.5)
     k3 = compute_full_dynamics_derivative(s3, ctrl, handles, S, b, c, rho, contacts, p_amb, r_aero, r_prop)
     
-    # 4. k4
     s4 = s
     s4.pos = s.pos + k3.d_pos * dt
     s4.quat = wp.normalize(s.quat + k3.d_quat * dt)
@@ -188,23 +196,26 @@ def integrate_full_state_rk4_kernel(
     s4.omega_body = s.omega_body + k3.d_omega * dt
     k4 = compute_full_dynamics_derivative(s4, ctrl, handles, S, b, c, rho, contacts, p_amb, r_aero, r_prop)
     
-    # Final Integration Update
-    s_new = s
-    s_new.pos = s.pos + (k1.d_pos + k2.d_pos * 2.0 + k3.d_pos * 2.0 + k4.d_pos) * (dt / 6.0)
-    s_new.quat = wp.normalize(s.quat + (k1.d_quat + k2.d_quat * 2.0 + k3.d_quat * 2.0 + k4.d_quat) * (dt / 6.0))
-    s_new.vel_body = s.vel_body + (k1.d_vel + k2.d_vel * 2.0 + k3.d_vel * 2.0 + k4.d_vel) * (dt / 6.0)
-    s_new.omega_body = s.omega_body + (k1.d_omega + k2.d_omega * 2.0 + k3.d_omega * 2.0 + k4.d_omega) * (dt / 6.0)
-    s_new.rpm = wp.max(0.1, s.rpm + (k1.d_rpm + k2.d_rpm * 2.0 + k3.d_rpm * 2.0 + k4.d_rpm) * (dt / 6.0))
-    s_new.fuel_mass = s.fuel_mass + (k1.d_fuel + k2.d_fuel * 2.0 + k3.d_fuel * 2.0 + k4.d_fuel) * (dt / 6.0)
+    # 5. Final State Update
+    s.pos = s.pos + (k1.d_pos + k2.d_pos * 2.0 + k3.d_pos * 2.0 + k4.d_pos) * (dt / 6.0)
+    s.quat = wp.normalize(s.quat + (k1.d_quat + k2.d_quat * 2.0 + k3.d_quat * 2.0 + k4.d_quat) * (dt / 6.0))
+    s.vel_body = s.vel_body + (k1.d_vel + k2.d_vel * 2.0 + k3.d_vel * 2.0 + k4.d_vel) * (dt / 6.0)
+    s.omega_body = s.omega_body + (k1.d_omega + k2.d_omega * 2.0 + k3.d_omega * 2.0 + k4.d_omega) * (dt / 6.0)
+    s.rpm = wp.max(0.1, s.rpm + (k1.d_rpm + k2.d_rpm * 2.0 + k3.d_rpm * 2.0 + k4.d_rpm) * (dt / 6.0))
+    s.fuel_mass = s.fuel_mass + (k1.d_fuel + k2.d_fuel * 2.0 + k3.d_fuel * 2.0 + k4.d_fuel) * (dt / 6.0)
     
-    # --- Observation Bridge (High-level telemetry) ---
-    s_new.alt_ft = -s_new.pos[2] * 3.28084
-    s_new.v_kts = wp.length(s_new.vel_body) * 1.94384
-    s_new.euler_rad = wp.quat_to_rpy(s_new.quat) # Radians [roll, pitch, yaw]
+    # NEW: Store Forensic Telemetry (Use k4 or smoothed average)
+    s.accel_body = (k1.d_vel + k2.d_vel * 2.0 + k3.d_vel * 2.0 + k4.d_vel) / 6.0 * 3.28084 # fps^2
+    s.vel_ned = quat_rotate_vector(s.quat, s.vel_body) * 3.28084 # fps
     
-    # Cleanup Aero Angles after step
-    alpha, beta, v_mag = compute_aero_angles(s_new.vel_body)
-    s_new.alpha = alpha
-    s_new.beta = beta
+    # Properties for DRL
+    s.alt_ft = s.pos[2] * -3.28084
+    s.v_kts = wp.length(s.vel_body) * 1.94384
+    s.euler_rad = wp.quat_to_rpy(s.quat)
     
-    states[tid] = s_new
+    # Cleanup Aero Angles
+    a, b, v_mag = compute_aero_angles(s.vel_body)
+    s.alpha = a
+    s.beta = b
+    
+    states[tid] = s

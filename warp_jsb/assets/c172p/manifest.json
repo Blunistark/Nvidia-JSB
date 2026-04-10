@@ -1,0 +1,911 @@
+{
+  "axes": {
+    "DRAG": [
+      {
+        "name": "aero/coefficient/CDo",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "value",
+              "value": 0.027
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/CDDf",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/function/kCDge"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 1,
+          "var": "fcs/flap-pos-deg"
+        }
+      },
+      {
+        "name": "aero/coefficient/CDwbh",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/function/kCDge"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 2,
+          "vars": [
+            "aero/alpha-rad",
+            "fcs/flap-pos-deg"
+          ]
+        }
+      },
+      {
+        "name": "aero/coefficient/CDDe",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/mag-elevator-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.06
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/CDbeta",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/mag-beta-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.17
+            }
+          ]
+        },
+        "table_meta": null
+      }
+    ],
+    "SIDE": [
+      {
+        "name": "aero/coefficient/CYb",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 2,
+          "vars": [
+            "aero/beta-rad",
+            "fcs/flap-pos-deg"
+          ]
+        }
+      },
+      {
+        "name": "aero/coefficient/CYda",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/left-aileron-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.0
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/CYdr",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/rudder-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.187
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/CYp",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/bi2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/p-aero-rad_sec"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 2,
+          "vars": [
+            "aero/alpha-rad",
+            "fcs/flap-pos-deg"
+          ]
+        }
+      },
+      {
+        "name": "aero/coefficient/CYr",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/bi2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/r-aero-rad_sec"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 2,
+          "vars": [
+            "aero/alpha-rad",
+            "fcs/flap-pos-deg"
+          ]
+        }
+      }
+    ],
+    "LIFT": [
+      {
+        "name": "aero/coefficient/CLwbh",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/function/kCLge"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 2,
+          "vars": [
+            "aero/alpha-rad",
+            "aero/stall-hyst-norm"
+          ]
+        }
+      },
+      {
+        "name": "aero/coefficient/CLDf",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/function/kCLge"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 1,
+          "var": "fcs/flap-pos-deg"
+        }
+      },
+      {
+        "name": "aero/coefficient/CLDe",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/elevator-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.43
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/CLadot",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "aero/alphadot-rad_sec"
+            },
+            {
+              "type": "property",
+              "name": "aero/ci2vel"
+            },
+            {
+              "type": "value",
+              "value": 1.7
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/CLq",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "velocities/q-aero-rad_sec"
+            },
+            {
+              "type": "property",
+              "name": "aero/ci2vel"
+            },
+            {
+              "type": "value",
+              "value": 3.9
+            }
+          ]
+        },
+        "table_meta": null
+      }
+    ],
+    "ROLL": [
+      {
+        "name": "aero/coefficient/Clb",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 1,
+          "var": "aero/beta-rad"
+        }
+      },
+      {
+        "name": "aero/coefficient/Clp",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/bi2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/p-aero-rad_sec"
+            },
+            {
+              "type": "value",
+              "value": -0.484
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Clr",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/bi2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/r-aero-rad_sec"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 2,
+          "vars": [
+            "aero/alpha-rad",
+            "fcs/flap-pos-deg"
+          ]
+        }
+      },
+      {
+        "name": "aero/coefficient/ClDa",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/left-aileron-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.229
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cldr",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/rudder-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": 0.0147
+            }
+          ]
+        },
+        "table_meta": null
+      }
+    ],
+    "PITCH": [
+      {
+        "name": "aero/coefficient/Cmo",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/cbarw-ft"
+            },
+            {
+              "type": "value",
+              "value": 0.1
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cmalpha",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/cbarw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/alpha-rad"
+            },
+            {
+              "type": "value",
+              "value": -1.8
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cmq",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/cbarw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/ci2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/q-aero-rad_sec"
+            },
+            {
+              "type": "value",
+              "value": -12.4
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cmadot",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/cbarw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/ci2vel"
+            },
+            {
+              "type": "property",
+              "name": "aero/alphadot-rad_sec"
+            },
+            {
+              "type": "value",
+              "value": -7.27
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cmde",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/function/qbar-induced-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/cbarw-ft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/elevator-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": -1.122
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cmdf",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/cbarw-ft"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 1,
+          "var": "fcs/flap-pos-deg"
+        }
+      }
+    ],
+    "YAW": [
+      {
+        "name": "aero/coefficient/Cnb",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "table"
+            }
+          ]
+        },
+        "table_meta": {
+          "dim": 1,
+          "var": "aero/beta-rad"
+        }
+      },
+      {
+        "name": "aero/coefficient/Cnp",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/bi2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/p-aero-rad_sec"
+            },
+            {
+              "type": "value",
+              "value": -0.0278
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cnr",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "aero/bi2vel"
+            },
+            {
+              "type": "property",
+              "name": "velocities/r-aero-rad_sec"
+            },
+            {
+              "type": "value",
+              "value": -0.0937
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cnda",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/qbar-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/left-aileron-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": -0.0053
+            }
+          ]
+        },
+        "table_meta": null
+      },
+      {
+        "name": "aero/coefficient/Cndr",
+        "structure": {
+          "type": "product",
+          "items": [
+            {
+              "type": "property",
+              "name": "aero/function/qbar-induced-psf"
+            },
+            {
+              "type": "property",
+              "name": "metrics/Sw-sqft"
+            },
+            {
+              "type": "property",
+              "name": "metrics/bw-ft"
+            },
+            {
+              "type": "property",
+              "name": "fcs/rudder-pos-rad"
+            },
+            {
+              "type": "value",
+              "value": -0.043
+            }
+          ]
+        },
+        "table_meta": null
+      }
+    ]
+  }
+}
