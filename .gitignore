@@ -43,3 +43,10 @@ temp/
 # Distribution
 dist/
 build/
+
+# Datasets & Large Artifacts
+pioneer_sequence_data*
+audit_temp_*
+pioneer_test_dataset*
+
+

@@ -5,7 +5,7 @@ import time
 
 from warp_jsb.eom import AircraftState, ControlState, integrate_full_state_rk4_kernel
 from warp_jsb.ground_reactions import ContactPoint
-from warp_jsb.aero_generated import evaluate_aero_model, AeroModelHandles
+from warp_jsb.aero_generated import AeroModelHandles
 from warp_jsb.logger import FleetLogger
 from warp_jsb.experience import ExperienceHarvester
 
@@ -35,27 +35,19 @@ def apply_actions_kernel(
 
 def load_aero_handles(data_dir, device):
     handles = AeroModelHandles()
-    # List of all expected tables from manifest
     tables = [
         "aero_coefficient_CDDf", "aero_coefficient_CDwbh", "aero_coefficient_CYb",
         "aero_coefficient_CYp", "aero_coefficient_CYr", "aero_coefficient_CLwbh",
         "aero_coefficient_CLDf", "aero_coefficient_Clb", "aero_coefficient_Clr",
         "aero_coefficient_Cmdf", "aero_coefficient_Cnb"
     ]
-    
     prop_tables = ["C_THRUST", "C_POWER"]
-    
     for t in tables + prop_tables:
         data = np.load(os.path.join(data_dir, f"{t}.npy"))
         meta = np.load(os.path.join(data_dir, f"{t}_meta.npy"))
-        
-        # Determine target attribute name
         attr_prefix = "prop_" if t in prop_tables else ""
-        
-        # Set attributes on the struct
         setattr(handles, f"{attr_prefix}{t}_table", wp.from_numpy(data, dtype=wp.float32, device=device))
         setattr(handles, f"{attr_prefix}{t}_meta", wp.from_numpy(meta, dtype=wp.float32, device=device))
-        
     return handles
 
 def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
@@ -69,24 +61,18 @@ def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
     states = wp.zeros(num_aircraft, dtype=AircraftState, device=device)
     controls = wp.zeros(num_aircraft, dtype=ControlState, device=device)
     
-    # Initialize quaternions to Identity (0,0,0,1) to avoid nan in normalization
     @wp.kernel
     def init_states_kernel(states: wp.array(dtype=AircraftState)):
         tid = wp.tid()
         s = states[tid]
         s.quat = wp.quat_identity()
-        s.mass = 1880.0 / 2.20462 # kg
-        s.fuel_mass = 100.0 # kg
+        s.mass = 1880.0 / 2.20462
+        s.fuel_mass = 100.0
         s.rpm = 2400.0
         states[tid] = s
-        
     wp.launch(init_states_kernel, dim=num_aircraft, inputs=[states], device=device)
     
-    # Metrics
-    S, b, c = 16.16, 10.91, 1.49 # SI meters
-    rho = 1.225
-    
-    # 4. Contacts (Manual assignment required for Warp 1.12.1)
+    # 3. Contacts
     def create_contact(pos, is_bogey, k, c, sf, df, ms):
         cp = ContactPoint()
         cp.pos_body = pos
@@ -105,21 +91,28 @@ def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
     ]
     contacts = wp.array(h_contacts, dtype=ContactPoint, device=device)
     
-    # 3. Environment & Moments
-    p_amb = 2116.22 # Standard sea level psf
+    # 4. Environment & Parameters
+    S, b, c = 16.16, 10.91, 1.49 
+    rho = 1.225
+    p_amb = 2116.22 
     r_aero = wp.vec3(0.0, 0.0, 0.0)
-    r_prop = wp.vec3(-2.0, 0.0, 0.0) # Hub position
+    r_prop = wp.vec3(-2.0, 0.0, 0.0)
     
-    print(f"Starting FULL SYSTEM RK4 SIMULATION of {num_aircraft} aircraft on {device}...")
+    # 5. Experience Harvesting (10-Step Time Series)
+    window_size = 10
+    print(f"\nInitializing {window_size}-step Time-Series Harvester for {num_aircraft} agents (Agent-First)...")
+    harvester = ExperienceHarvester(num_aircraft, window_size=window_size, obs_dim=11, act_dim=4, device=device)
+    
+    print(f"Starting FULL SYSTEM SIMULATION...")
     
     start = time.time()
-    for _ in range(num_steps):
-        # 3. Apply Random Actions (Simulation of NN Exploration)
+    for i in range(num_steps):
+        # Actions
         actions_np = np.random.uniform(-1.0, 1.0, size=(num_aircraft, 4)).astype(np.float32)
         actions = wp.from_numpy(actions_np, dtype=wp.float32, device=device)
         wp.launch(apply_actions_kernel, dim=num_aircraft, inputs=[actions, controls], device=device)
 
-        # Full RK4 Integration (handles Aero, Prop, FCS, Gear internally)
+        # Physics
         wp.launch(
             kernel=integrate_full_state_rk4_kernel,
             dim=num_aircraft,
@@ -127,38 +120,32 @@ def run_simulation(num_aircraft=100000, num_steps=100, dt=0.01):
             device=device
         )
         
+        # Harvest (Snapshot into circular buffer)
+        harvester.record(states, controls)
+        
     wp.synchronize()
     end = time.time()
     
-    # 5. Verify Observation Bridge
+    # 6. Verification
     s_final = states.numpy()[0]
-    euler_rad = s_final['euler_rad']
-    euler_deg = [r * (180.0 / 3.14159) for r in euler_rad]
-    
     print(f"\nFinal State Telemetry (Aircraft 0):")
     print(f" - Altitude: {s_final['alt_ft']:.2f} ft")
     print(f" - Airspeed: {s_final['v_kts']:.2f} kts")
-    print(f" - Attitude Rad (Roll, Pitch, Yaw): {euler_rad}")
-    print(f" - Attitude Deg (Roll, Pitch, Yaw): {euler_deg}")
+    print(f" - Attitude Rad: {s_final['euler_rad']}")
     
-    # 6. Fleet Mission Report
     logger = FleetLogger(num_aircraft, device)
     stats = logger.compute(states)
-    
-    print(f"\n" + "="*40)
+    print(f"\n========================================")
     print(f" FLEET MISSION REPORT ({num_aircraft} Aircraft)")
-    print(f"="*40)
-    print(f" Altitude (ft)  : Mean {stats['mean_alt_ft']:.1f} | Std {stats['std_alt_ft']:.1f} | Min {stats['min_alt_ft']:.1f} | Max {stats['max_alt_ft']:.1f}")
-    print(f" Airspeed (kts) : Mean {stats['mean_v_kts']:.1f} | Max {stats['max_v_kts']:.1f}")
-    print(f"="*40)
+    print(f"========================================")
+    print(f" Altitude Mean: {stats['mean_alt_ft']:.2f} ft")
+    print(f" Airspeed Max: {stats['max_v_kts']:.2f} kts")
+    print(f"========================================\n")
     
-    # 7. Experience Harvesting (Dataset Export)
-    print("\nHarvesting 10,000,000 state-action pairs...")
-    harvester = ExperienceHarvester(num_aircraft, obs_dim=11, act_dim=4, device=device)
-    harvester.record(states, controls)
-    harvester.save_to_disk("pioneer_test_dataset")
+    # 7. Dataset Export
+    harvester.save_to_disk("pioneer_sequence_data")
     
-    print(f"\nRK4 Model Sim took {end-start:.4f} seconds.")
+    print(f"RK4 Model Sim took {end-start:.4f} seconds.")
     print(f"Throughput: {num_aircraft * num_steps / (end-start):.0f} aircraft-steps/sec")
 
 if __name__ == "__main__":
