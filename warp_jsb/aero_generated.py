@@ -27,12 +27,18 @@ class AeroModelHandles:
     aero_coefficient_Cmdf_meta: wp.array(dtype=wp.float32)
     aero_coefficient_Cnb_table: wp.array(dtype=wp.float32)
     aero_coefficient_Cnb_meta: wp.array(dtype=wp.float32)
+    # Propulsion Tables
+    prop_C_THRUST_table: wp.array(dtype=wp.float32)
+    prop_C_THRUST_meta: wp.array(dtype=wp.float32)
+    prop_C_POWER_table: wp.array(dtype=wp.float32)
+    prop_C_POWER_meta: wp.array(dtype=wp.float32)
 
 @wp.func
 def evaluate_aero_model(
     alpha: wp.float32,
     beta: wp.float32,
     qbar: wp.float32,
+    qbar_induced: wp.float32,
     p: wp.float32,
     q: wp.float32,
     r: wp.float32,
@@ -46,7 +52,7 @@ def evaluate_aero_model(
     flaps: wp.float32,
     handles: AeroModelHandles
 ):
-    aero_coefficient_CDo = (qbar * 174.0 * 0.027)
+    aero_coefficient_CDo = (qbar * 174.0 * 0.033)
     aero_coefficient_CDDf = (qbar * 174.0 * 1.0 * sample_lut_1d(handles.aero_coefficient_CDDf_table, handles.aero_coefficient_CDDf_meta, (flaps * 30.0)))
     aero_coefficient_CDwbh = (qbar * 174.0 * 1.0 * sample_lut_2d(handles.aero_coefficient_CDwbh_table, handles.aero_coefficient_CDwbh_meta, alpha, (flaps * 30.0)))
     aero_coefficient_CDDe = (qbar * 174.0 * wp.abs(elevator * 0.4) * 0.06)
@@ -66,17 +72,17 @@ def evaluate_aero_model(
     aero_coefficient_Clr = (qbar * 174.0 * 35.8 * bi2vel * r * sample_lut_2d(handles.aero_coefficient_Clr_table, handles.aero_coefficient_Clr_meta, alpha, (flaps * 30.0)))
     aero_coefficient_ClDa = (qbar * 174.0 * 35.8 * (aileron * 0.3) * 0.229)
     aero_coefficient_Cldr = (qbar * 174.0 * 35.8 * (rudder * 0.3) * 0.0147)
-    aero_coefficient_Cmo = (qbar * 174.0 * 4.9 * 0.1)
+    aero_coefficient_Cmo = (qbar * 174.0 * 4.9 * 0.052)
     aero_coefficient_Cmalpha = (qbar * 174.0 * 4.9 * alpha * -1.8)
     aero_coefficient_Cmq = (qbar * 174.0 * 4.9 * ci2vel * q * -12.4)
     aero_coefficient_Cmadot = (qbar * 174.0 * 4.9 * ci2vel * 0.0 * -7.27)
-    aero_coefficient_Cmde = (qbar * 174.0 * 4.9 * (elevator * 0.4) * -1.122)
+    aero_coefficient_Cmde = (qbar_induced * 4.9 * (elevator * 0.4) * -1.122)
     aero_coefficient_Cmdf = (qbar * 174.0 * 4.9 * sample_lut_1d(handles.aero_coefficient_Cmdf_table, handles.aero_coefficient_Cmdf_meta, (flaps * 30.0)))
     aero_coefficient_Cnb = (qbar * 174.0 * 35.8 * sample_lut_1d(handles.aero_coefficient_Cnb_table, handles.aero_coefficient_Cnb_meta, beta))
     aero_coefficient_Cnp = (qbar * 174.0 * 35.8 * bi2vel * p * -0.0278)
     aero_coefficient_Cnr = (qbar * 174.0 * 35.8 * bi2vel * r * -0.0937)
     aero_coefficient_Cnda = (qbar * 174.0 * 35.8 * (aileron * 0.3) * -0.0053)
-    aero_coefficient_Cndr = (qbar * 174.0 * 35.8 * (rudder * 0.3) * -0.043)
+    aero_coefficient_Cndr = (qbar_induced * 35.8 * (rudder * 0.3) * -0.043)
     # Total Sums
     total_DRAG = aero_coefficient_CDo + aero_coefficient_CDDf + aero_coefficient_CDwbh + aero_coefficient_CDDe + aero_coefficient_CDbeta
     total_SIDE = aero_coefficient_CYb + aero_coefficient_CYda + aero_coefficient_CYdr + aero_coefficient_CYp + aero_coefficient_CYr
