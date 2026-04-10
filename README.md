@@ -2,6 +2,8 @@
 
 **Pioneer FDM** is a research-grade, differentiable flight dynamics model (FDM) built on **NVIDIA Warp**. It is the elite choice for high-scale Reinforcement Learning, capable of simulating **millions of agents** with bit-perfect trajectory parity against the gold-standard **JSBSim C++ engine**.
 
+[![PyPI version](https://badge.fury.io/py/warp-jsb.svg)](https://badge.fury.io/py/warp-jsb)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 ![JSBSim Parity](https://img.shields.io/badge/JSBSim_Parity-Sub--1%25-brightgreen)
 ![Processing Speed](https://img.shields.io/badge/Physics_Speed-200M+_steps%2Fsec-blue)
 ![Data Throughput](https://img.shields.io/badge/Harvesting_Speed-545M_samples%2Fsec-orange)
@@ -40,9 +42,25 @@ In aerospace reinforcement learning, the "Fidelity Gap" between fast, paralleliz
 
 ## 🛠️ Usage
 
-### Installation
+### Global Installation
+Install the high-fidelity FDM directly from the Python Package Index:
 ```bash
+pip install warp_jsb
+```
+
+### Developer Setup (Local)
+For real-time physics modification and contribution:
+```bash
+git clone https://github.com/Blunistark/Nvidia-JSB.git
+cd Nvidia-JSB
 pip install -e .
+```
+
+## ⌨️ Global CLI usage
+Pioneer FDM includes a built-in command-line interface for rapid flight auditing:
+```bash
+# Launch a high-fidelity flight marathon from any terminal
+pioneer-sim --mode stochastic --aircraft 10
 ```
 
 ### High-Speed Data Harvesting

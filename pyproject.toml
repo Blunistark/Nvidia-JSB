@@ -7,11 +7,29 @@ name = "warp_jsb"
 version = "0.1.0"
 description = "High-fidelity GPU-accelerated aerospace physics engine powered by NVIDIA Warp."
 readme = "README.md"
+authors = [
+  { name = "BluniStark", email = "meghnath.s.official@gmail.com" }
+]
+license = { file = "LICENSE" }
 requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+keywords = ["NVIDIA Warp", "JSBSim", "DRL", "Aerospace", "Physics"]
 dependencies = [
     "warp-lang",
     "numpy",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Blunistark/Nvidia-JSB"
+Repository = "https://github.com/Blunistark/Nvidia-JSB.git"
 
 [tool.setuptools.package-data]
 warp_jsb = ["assets/**/*"]
