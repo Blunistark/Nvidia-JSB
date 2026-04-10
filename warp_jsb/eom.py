@@ -30,6 +30,11 @@ class AircraftState:
     beta: wp.float32
     stall_hyst: wp.float32
     rpm: wp.float32
+    
+    # High-level properties for DRL Observations
+    alt_ft: wp.float32
+    v_kts: wp.float32
+    euler_rad: wp.vec3 # [roll, pitch, yaw]
 
 @wp.struct
 class StateDeriv:
@@ -183,17 +188,23 @@ def integrate_full_state_rk4_kernel(
     s4.omega_body = s.omega_body + k3.d_omega * dt
     k4 = compute_full_dynamics_derivative(s4, ctrl, handles, S, b, c, rho, contacts, p_amb, r_aero, r_prop)
     
-    # Final Integration
-    states[tid].pos = s.pos + (k1.d_pos + k2.d_pos * 2.0 + k3.d_pos * 2.0 + k4.d_pos) * (dt / 6.0)
-    states[tid].quat = wp.normalize(s.quat + (k1.d_quat + k2.d_quat * 2.0 + k3.d_quat * 2.0 + k4.d_quat) * (dt / 6.0))
-    states[tid].vel_body = s.vel_body + (k1.d_vel + k2.d_vel * 2.0 + k3.d_vel * 2.0 + k4.d_vel) * (dt / 6.0)
-    states[tid].omega_body = s.omega_body + (k1.d_omega + k2.d_omega * 2.0 + k3.d_omega * 2.0 + k4.d_omega) * (dt / 6.0)
+    # Final Integration Update
+    s_new = s
+    s_new.pos = s.pos + (k1.d_pos + k2.d_pos * 2.0 + k3.d_pos * 2.0 + k4.d_pos) * (dt / 6.0)
+    s_new.quat = wp.normalize(s.quat + (k1.d_quat + k2.d_quat * 2.0 + k3.d_quat * 2.0 + k4.d_quat) * (dt / 6.0))
+    s_new.vel_body = s.vel_body + (k1.d_vel + k2.d_vel * 2.0 + k3.d_vel * 2.0 + k4.d_vel) * (dt / 6.0)
+    s_new.omega_body = s.omega_body + (k1.d_omega + k2.d_omega * 2.0 + k3.d_omega * 2.0 + k4.d_omega) * (dt / 6.0)
+    s_new.rpm = wp.max(0.1, s.rpm + (k1.d_rpm + k2.d_rpm * 2.0 + k3.d_rpm * 2.0 + k4.d_rpm) * (dt / 6.0))
+    s_new.fuel_mass = s.fuel_mass + (k1.d_fuel + k2.d_fuel * 2.0 + k3.d_fuel * 2.0 + k4.d_fuel) * (dt / 6.0)
     
-    # Update RPM and Fuel
-    states[tid].rpm = s.rpm + (k1.d_rpm + k2.d_rpm * 2.0 + k3.d_rpm * 2.0 + k4.d_rpm) * (dt / 6.0)
-    states[tid].fuel_mass = s.fuel_mass + (k1.d_fuel + k2.d_fuel * 2.0 + k3.d_fuel * 2.0 + k4.d_fuel) * (dt / 6.0)
+    # --- Observation Bridge (High-level telemetry) ---
+    s_new.alt_ft = -s_new.pos[2] * 3.28084
+    s_new.v_kts = wp.length(s_new.vel_body) * 1.94384
+    s_new.euler_rad = wp.quat_to_rpy(s_new.quat) # Radians [roll, pitch, yaw]
     
     # Cleanup Aero Angles after step
-    alpha, beta, v_mag = compute_aero_angles(states[tid].vel_body)
-    states[tid].alpha = alpha
-    states[tid].beta = beta
+    alpha, beta, v_mag = compute_aero_angles(s_new.vel_body)
+    s_new.alpha = alpha
+    s_new.beta = beta
+    
+    states[tid] = s_new

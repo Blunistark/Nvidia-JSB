@@ -23,7 +23,7 @@ def compute_induced_velocity(thrust_lbs: wp.float32, rho_slugs: wp.float32, area
     delta = b * b - 4.0 * a * c
     if delta < 0.0 or a < 1e-6:
         return 0.0
-    v_i = (-b + wp.sqrt(delta)) / (2.0 * a)
+    v_i = (-b + wp.sqrt(wp.max(0.0, delta))) / (2.0 * a)
     return v_i
 
 @wp.func
@@ -74,10 +74,10 @@ def compute_prop_forces_and_induced(
     handles: AeroModelHandles
 ):
     n_rps = rpm / 60.0
-    if n_rps < 1.0:
+    if n_rps < 0.1:
         return 0.0, 0.0, 0.0
         
-    J = v_fps / (n_rps * diameter_ft)
+    J = v_fps / (wp.max(n_rps, 0.1) * diameter_ft)
     ct = sample_lut_1d(handles.prop_C_THRUST_table, handles.prop_C_THRUST_meta, J)
     cp = sample_lut_1d(handles.prop_C_POWER_table, handles.prop_C_POWER_meta, J)
     
